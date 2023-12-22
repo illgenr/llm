@@ -2,6 +2,7 @@ import sys
 import os
 import json
 import llm
+import pickle
 
 def get_api_key(api):
     key_map = {
@@ -10,57 +11,81 @@ def get_api_key(api):
         # Add more mappings as needed
     }
     return os.getenv(key_map.get(api.lower()))
-
-def run_llm_deprecated(api, model_name, prompt, options_json=None, system_prompt=None):
-    # Initialize the LLM model
-    model = llm.get_model(model_name)
     
-    model.key = get_api_key(api)
-
-    # Ensure the API key is set
-    if not model.key:
-        return "API key not set. Please set the LLM_API_KEY environment variable."
-
-    # handle options 
-    if(api.lower() == 'google'):
-        options = options_json if options_json else '{}'
-    else:
-        options = json.loads(options_json) if options_json else {}
-
-    # Run the prompt
-    response = model.prompt(prompt, options, system_prompt)
-
-    for chunk in response:
-        print(chunk, end="")
-    
-
-def run_llm(model_name, prompt):
-    model = llm.get_model(model_name)    
-    response = model.prompt(prompt)
-    print("<<LLM_START>>", end="")
-    for chunk in response:
-        print(chunk, end="")
-    print("<<LLM_END>>")
-
 def test_output():
     print("<<LLM_START>>", end="")
     print("oogie boogie", end="")
     print("<<LLM_END>>")
 
-# class LLMWrapper:
-#     model = None
+class LLMWrapper:
+    model = None
+    api = None
+    conversation = None  # To hold the conversation state
 
-#     def get_model():
-#         return model
+    def __init__ (self):
+        self.model = llm.get_model("gemini-pro")
+        self.api = 'google'
     
-#     def set_model(model_name):
-#         model = llm.get_model(model_name)
-    
-# if __name__ == "__main__":
-#     api = sys.argv[1]
-#     model_name = sys.argv[2]
-#     prompt = sys.argv[3]
-#     options = sys.argv[4] if len(sys.argv) > 4 else '{}'
-#     system_prompt = sys.argv[5] if len(sys.argv) > 5 else None
+    def set_model(self, model_name):
+        self.model = llm.get_model(model_name)
 
-#     run_llm(api, model_name, prompt, options, system_prompt)
+    def set_api(self, api):
+        self.api = api
+
+    def prompt(self, prompt):
+        response = self.model.prompt(prompt)
+        print(f"**USER:** {response.prompt.prompt}")
+        print(f"**AI:** ")
+        for chunk in response:
+            print(chunk, end="\n")
+        print('\u0004') # end of transmission
+
+    # Conversation
+    def start_conversation(self):
+        self.conversation = llm.Conversation(model=self.model)
+
+    def continue_conversation(self, prompt):
+        if self.conversation is None:
+            self.start_conversation()
+        response = self.conversation.prompt(prompt)
+        print(f"**USER:** {response.prompt.prompt}")
+        print(f"**AI:** ")
+        for chunk in response:
+            print(chunk, end="\n")
+        print('\u0004')  # End of transmission
+
+    def end_conversation(self):
+        self.conversation = None
+
+    # Save / Load
+    def save_conversation(self, filepath):
+        """Save the current conversation state to a file."""
+        with open(filepath, 'wb') as file:
+            pickle.dump(self.conversation, file)
+
+    def load_conversation(self, filepath):
+        """Load a conversation state from a file."""
+        with open(filepath, 'rb') as file:
+            self.conversation = pickle.load(file)
+
+        formatted_responses = []
+
+        model_name = self.conversation.model.model_id if self.conversation.model else 'Unknown'
+
+        formatted_responses.append(f"MODEL:{model_name}")
+        formatted_responses.append("\n")
+        for response in self.conversation.responses:
+            if response.prompt.prompt:
+                formatted_responses.append(f"**USER:** {response.prompt.prompt}")
+            if response.text():
+                formatted_responses.append(f"**AI:** {response.text()}")
+            formatted_responses.append("\n")            
+                
+        formatted_responses.append('\u0004')
+
+        for response in formatted_responses:
+            print(response)
+            
+    
+if __name__ == "__main__":
+    llmwrapper = LLMWrapper()
