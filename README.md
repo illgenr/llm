@@ -27,12 +27,13 @@ Step 3: Configure Emacs
 Add the following lines to your Emacs configuration (.emacs or init.el):
 ```emacs lisp
 (add-to-list 'load-path "/path/to/cloned/repo")
-(require 'llm-emacs)  ; Replace 'llm-emacs' with the actual file name
+(require 'llm)  ; Replace 'llm-emacs' with the actual file name
 ```
 
 ## Getting started
 After installation, you can start using the package to interact with LLMs.
 Make sure your api keys are exported in your .bashrc or .zshrc or use the LLM keys commands from your terminal.
+
 export OPENAI_API_KEY=
 export GOOGLE_API_KEY=
 ect
